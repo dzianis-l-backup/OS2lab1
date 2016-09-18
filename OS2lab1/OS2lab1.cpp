@@ -5,6 +5,8 @@
 #include "OS2lab1.h"
 
 #define MAX_LOADSTRING 100
+bool bDrawLine = false;
+bool bDrawEllipse = false;
 
 // Глобальные переменные:
 HINSTANCE hInst;								// current instance
@@ -119,8 +121,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //  НАЗНАЧЕНИЕ:  обрабатывает сообщения в главном окне.
 //
 //  WM_COMMAND	- обработка меню приложения
-//  WM_PAINT	-Закрасить главное окно
-//  WM_DESTROY	 - ввести сообщение о выходе и вернуться.
+//  WM_PAINT	- закрасить главное окно
+//  WM_DESTROY	- ввести сообщение о выходе и вернуться.
 //
 //
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -131,6 +133,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 	switch (message)
 	{
+	case WM_LBUTTONDOWN:
+	{
+		int iPosX = LOWORD(lParam);
+		int iPosY = HIWORD(lParam);
+		wchar_t waCoord[20];
+		wsprintf(waCoord,_T("(%i, %i)"),iPosX,iPosY);
+		::MessageBox(hWnd,waCoord, _T("LBM Click"),MB_OK);
+	}
+
 	case WM_COMMAND:
 		wmId    = LOWORD(wParam);
 		wmEvent = HIWORD(wParam);
@@ -143,6 +154,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case IDM_EXIT:
 			DestroyWindow(hWnd);
 			break;
+		case IDM_LINE:
+			bDrawLine = !bDrawLine;
+			InvalidateRect(hWnd,0,TRUE);
+			break;
+		case IDM_ELLIPSE:
+			bDrawEllipse = !bDrawEllipse;
+			InvalidateRect(hWnd, 0, TRUE);
+			break;
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
@@ -150,6 +169,38 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_PAINT:
 		hdc = BeginPaint(hWnd, &ps);
 		// TODO: добавьте любой код отрисовки...
+		
+		HPEN hPenOld;//used for storage
+		if (bDrawLine)//if line is selected
+		{
+			//Draw a red line
+			HPEN hLinePen;//used for storage
+			COLORREF qLineColor;
+			qLineColor = RGB(255, 0, 0);
+			hLinePen = CreatePen(PS_SOLID, 7, qLineColor);//solid/dashed/dotted; width
+			hPenOld = (HPEN)SelectObject(hdc, hLinePen);//storing lod pen
+
+			MoveToEx(hdc, 100, 100, NULL);
+			LineTo(hdc, 500, 250);
+
+			SelectObject(hdc, hPenOld);
+			DeleteObject(hLinePen);
+		}
+		if (bDrawEllipse)//if ellipse is selected
+		{
+			//Draw a blue ellipse
+			HPEN hEllipsePen;
+			COLORREF qEllipseColor;
+			qEllipseColor = RGB(0, 0, 255);
+			hEllipsePen = CreatePen(PS_SOLID, 3, qEllipseColor);
+			hPenOld = (HPEN)SelectObject(hdc, hEllipsePen);
+
+			Arc(hdc, 100, 100, 500, 250, 0, 0, 0, 0);
+
+			SelectObject(hdc, hPenOld);
+			DeleteObject(hEllipsePen);
+		}
+
 		EndPaint(hWnd, &ps);
 		break;
 	case WM_DESTROY:
