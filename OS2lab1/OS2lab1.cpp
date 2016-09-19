@@ -3,6 +3,8 @@
 
 #include "stdafx.h"
 #include "OS2lab1.h"
+#include <vector>
+using namespace std;
 
 #define MAX_LOADSTRING 100
 bool bDrawLine = false;
@@ -131,16 +133,37 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	PAINTSTRUCT ps;
 	HDC hdc;
 
+	//variable scope
+	POINT t; 
+	static std::vector<POINT> pos; 
+	static bool status; 
+	PAINTSTRUCT pt;
+
 	switch (message)
 	{
-	case WM_LBUTTONDOWN:
-	{
-		int iPosX = LOWORD(lParam);
-		int iPosY = HIWORD(lParam);
-		wchar_t waCoord[20];
-		wsprintf(waCoord,_T("(%i, %i)"),iPosX,iPosY);
-		::MessageBox(hWnd,waCoord, _T("LBM Click"),MB_OK);
-	}
+	//case WM_LBUTTONDOWN:
+	//{
+		//int iPosX = LOWORD(lParam);
+		//int iPosY = HIWORD(lParam);
+		//wchar_t waCoord[20];
+		//wsprintf(waCoord,_T("(%i, %i)"),iPosX,iPosY);
+		//::MessageBox(hWnd,waCoord, _T("LBM Click"),MB_OK);
+	//}
+	case WM_LBUTTONDOWN: 
+		status = true;
+		break;
+
+	case WM_LBUTTONUP: 
+		status = false;
+		t.x = -1; pos.push_back(t);
+		break;
+
+	case WM_MOUSEMOVE: 
+		GetCursorPos(&t);
+		ScreenToClient(hWnd, &t);
+		(status) ? pos.push_back(t) : NULL;
+		(status) ? InvalidateRect(hWnd, NULL, true) : NULL;
+		break;
 
 	case WM_COMMAND:
 		wmId    = LOWORD(wParam);
@@ -167,10 +190,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	case WM_PAINT:
-		hdc = BeginPaint(hWnd, &ps);
 		// TODO: добавьте любой код отрисовки...
+		hdc = BeginPaint(hWnd, &ps);
+	
+		(!pos.size()) ? NULL : MoveToEx(hdc, pos[0].x, pos[0].y, NULL);
+		for (size_t i = 0; i<pos.size(); ++i)
+			(pos[i].x == -1 && i<pos.size() - 1) ? MoveToEx(hdc, pos[i + 1].x, pos[i + 1].y, NULL) : LineTo(hdc, pos[i].x, pos[i].y);
+
 		
-		HPEN hPenOld;//used for storage
+		
+		/*HPEN hPenOld;//used for storage
 		if (bDrawLine)//if line is selected
 		{
 			//Draw a red line
@@ -200,6 +229,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			SelectObject(hdc, hPenOld);
 			DeleteObject(hEllipsePen);
 		}
+		*/
 
 		EndPaint(hWnd, &ps);
 		break;
