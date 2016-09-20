@@ -1,9 +1,10 @@
-﻿Сборка начата 19.09.2016 19:49:39.
+﻿Сборка начата 20.09.2016 5:19:28.
      1>Проект "C:\Users\DziLean\Documents\Visual Studio 2013\Projects\OS2lab1\OS2lab1\OS2lab1.vcxproj" в узле 2 (целевые объекты Build).
      1>ClCompile:
          C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _WINDOWS /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Yu"stdafx.h" /Fp"Debug\OS2lab1.pch" /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt OS2lab1.cpp
          OS2lab1.cpp
-     1>c:\users\dzilean\documents\visual studio 2013\projects\os2lab1\os2lab1\os2lab1.cpp(140): warning C4101: pt: неиспользованная локальная переменная
+     1>c:\users\dzilean\documents\visual studio 2013\projects\os2lab1\os2lab1\os2lab1.cpp(155): warning C4101: pt: неиспользованная локальная переменная
+     1>c:\users\dzilean\documents\visual studio 2013\projects\os2lab1\os2lab1\os2lab1.cpp(152): warning C4101: t: неиспользованная локальная переменная
        Link:
          C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\DziLean\Documents\Visual Studio 2013\Projects\OS2lab1\Debug\OS2lab1.exe" /INCREMENTAL /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\Users\DziLean\Documents\Visual Studio 2013\Projects\OS2lab1\Debug\OS2lab1.pdb" /SUBSYSTEM:WINDOWS /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\DziLean\Documents\Visual Studio 2013\Projects\OS2lab1\Debug\OS2lab1.lib" /MACHINE:X86 Debug\OS2lab1.res
          Debug\OS2lab1.obj
@@ -13,4 +14,4 @@
 
 Сборка успешно завершена.
 
-Затраченное время: 00:00:08.26
+Затраченное время: 00:00:07.06
