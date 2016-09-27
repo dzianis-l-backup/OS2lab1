@@ -5,6 +5,11 @@
 #include "OS2lab1.h"
 #include <vector>
 #include <gdiplus.h>
+#include <CommDlg.h>
+#include <string>
+#include <stdio.h>
+#include <windows.h>
+#include <ctime>
 
 #pragma comment (lib,"Gdiplus.lib")
 using namespace Gdiplus;
@@ -18,6 +23,44 @@ bool bDrawEllipse = false;
 HINSTANCE hInst;								// current instance
 TCHAR szTitle[MAX_LOADSTRING];					// text of header string
 TCHAR szWindowClass[MAX_LOADSTRING];			// the name of window main class
+
+///
+///User's global variables
+///
+bool isPen;
+bool isLine;
+bool isEllipse;
+bool isRectangle;
+static int f=0;
+
+
+int xLBDPos;
+int yLBDPos;
+int id;
+bool isPainting;
+static HBITMAP hCompatibleBitmap, hBitmap;
+static HDC hCompatibleDC = 0;
+static HDC hBitmapDC;//
+RECT rect;//client rectangle
+static HDC hdc,hdc1,hdc2;//hdc - drawing in memory, hdc1 - for metafile, hdc2 - for drawing on real display
+static HBRUSH hBrush;
+static HPEN hPen;
+TEXTMETRIC tm;//text settings
+static int cxChar, cyChar;
+
+static OPENFILENAME ofn;
+static char fullpath[256], filename[256], dir[256];
+HENHMETAFILE hEnhMtf;
+ENHMETAHEADER emh;
+
+static double scale;
+static int xBegin = 0, yBegin = 0, fl = 0;
+RECT rect1;
+
+//prototypes list
+void create(HWND h);
+void Save(HWND h);
+void Open(HWND h);
 
 // Отправить объявления функций, включенных в этот модуль кода:
 ATOM				MyRegisterClass(HINSTANCE hInstance);
@@ -146,149 +189,28 @@ VOID OnPaint(HDC hdc)//line drawn
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	int wmId, wmEvent;
-	PAINTSTRUCT ps;
-	HDC hdc;
-	////////////////////////////////////////////
-	//variable scope
-	POINT t; 
-	static std::vector<POINT> pos; 
-	static bool status; 
-	PAINTSTRUCT pt;
-	////////////////////////////////////////////
-
-	RECT rcClient;                 // client area rectangle 
-	POINT ptClientUL;              // client upper left corner 
-	POINT ptClientLR;              // client lower right corner 
-	static POINTS ptsBegin;        // beginning point 
-	static POINTS ptsEnd;          // new endpoint 
-	static POINTS ptsPrevEnd;      // previous endpoint 
-	static BOOL fPrevLine = FALSE; // previous line flag 
+	PAINTSTRUCT ps;		// paint data for Begin/EndPaint  
+	// handle to device context (DC)  
+	////////////////////////////////////////////	
+	///
+	///temporary variables
+	///
+	int static x0, y0, x1, y1, x2, y2, oldMixMode;
 
 	switch (message)
 	{
-	case WM_LBUTTONDOWN:
 
-		// Capture mouse input. 
-
-		SetCapture(hWnd);
-
-		// Retrieve the screen coordinates of the client area, 
-		// and convert them into client coordinates. 
-
-		GetClientRect(hWnd, &rcClient);
-		ptClientUL.x = rcClient.left;
-		ptClientUL.y = rcClient.top;
-
-		// Add one to the right and bottom sides, because the 
-		// coordinates retrieved by GetClientRect do not 
-		// include the far left and lowermost pixels. 
-
-		ptClientLR.x = rcClient.right + 1;
-		ptClientLR.y = rcClient.bottom + 1;
-		ClientToScreen(hWnd, &ptClientUL);
-		ClientToScreen(hWnd, &ptClientLR);
-
-		// Copy the client coordinates of the client area 
-		// to the rcClient structure. Confine the mouse cursor 
-		// to the client area by passing the rcClient structure 
-		// to the ClipCursor function. 
-
-		SetRect(&rcClient, ptClientUL.x, ptClientUL.y,
-			ptClientLR.x, ptClientLR.y);
-		ClipCursor(&rcClient);//cursor constrains
-
-		// Convert the cursor coordinates into a POINTS 
-		// structure, which defines the beginning point of the 
-		// line drawn during a WM_MOUSEMOVE message. 
-
-		ptsBegin = MAKEPOINTS(lParam);
-		return 0;
-
-	case WM_MOUSEMOVE:
-
-		// When moving the mouse, the user must hold down 
-		// the left mouse button to draw lines. 
-
-		if (wParam & MK_LBUTTON)
-		{
-
-			// Retrieve a device context (DC) for the client area. 
-
-			hdc = GetDC(hWnd);
-
-			// The following function ensures that pixels of 
-			// the previously drawn line are set to white and 
-			// those of the new line are set to black. 
-
-			SetROP2(hdc, R2_NOTXORPEN);
-
-			// If a line was drawn during an earlier WM_MOUSEMOVE 
-			// message, draw over it. This erases the line by 
-			// setting the color of its pixels to white. 
-
-			if (fPrevLine)
-			{
-				MoveToEx(hdc, ptsBegin.x, ptsBegin.y,
-					(LPPOINT)NULL);
-				LineTo(hdc, ptsPrevEnd.x, ptsPrevEnd.y);
-			}
-
-			// Convert the current cursor coordinates to a 
-			// POINTS structure, and then draw a new line. 
-
-			ptsEnd = MAKEPOINTS(lParam);
-			MoveToEx(hdc, ptsBegin.x, ptsBegin.y, (LPPOINT)NULL);
-			LineTo(hdc, ptsEnd.x, ptsEnd.y);
-
-			// Set the previous line flag, save the ending 
-			// point of the new line, and then release the DC. 
-
-			fPrevLine = TRUE;
-			ptsPrevEnd = ptsEnd;
-			ReleaseDC(hWnd, hdc);
-		}
+	case WM_CREATE:
+		create(hWnd);
 		break;
-
-
-	case WM_LBUTTONUP:
-
-		// The user has finished drawing the line. Reset the 
-		// previous line flag, release the mouse cursor, and 
-		// release the mouse capture. 
-
-		fPrevLine = FALSE;
-		ClipCursor(NULL);
-		ReleaseCapture();
-		return 0;
-
-
-	//case WM_LBUTTONDOWN:
-	//{
-		//int iPosX = LOWORD(lParam);
-		//int iPosY = HIWORD(lParam);
-		//wchar_t waCoord[20];
-		//wsprintf(waCoord,_T("(%i, %i)"),iPosX,iPosY);
-		//::MessageBox(hWnd,waCoord, _T("LBM Click"),MB_OK);
-	//}
-	//case WM_LBUTTONDOWN: 
-		//status = true;
-		//break;
-
-	//case WM_LBUTTONUP: 
-		//status = false;
-		//t.x = -1; pos.push_back(t);
-		//break;
-
-	//case WM_MOUSEMOVE: 
-		//GetCursorPos(&t);
-		//ScreenToClient(hWnd, &t);
-		//(status) ? pos.push_back(t) : NULL;
-		//(status) ? InvalidateRect(hWnd, NULL, true) : NULL;
-		//break;
-
+	
 	case WM_COMMAND:
 		wmId    = LOWORD(wParam);
 		wmEvent = HIWORD(wParam);
+		//variables scope
+
+		
+
 		// Разобрать выбор в меню:
 		switch (wmId)
 		{
@@ -298,63 +220,176 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case IDM_EXIT:
 			DestroyWindow(hWnd);
 			break;
+
+		//ellipse rect roundRect line
+
+		case IDM_PEN:
+			
+			id = IDM_PEN;
+			break;
+
 		case IDM_LINE:
-			bDrawLine = !bDrawLine;
-			InvalidateRect(hWnd,0,TRUE);
+		
+			//TurrnOffBoolean(isPen,isLine,isEllipse,isRectanle);
+			//isLine = true;
+			id = IDM_LINE;
 			break;
+
 		case IDM_ELLIPSE:
-			bDrawEllipse = !bDrawEllipse;
-			InvalidateRect(hWnd, 0, TRUE);
+
+			//TurrnOffBoolean(isLine, isEllipse);
+			//isEllipse = true;
+			id = IDM_ELLIPSE;
 			break;
+		
+		case IDM_RECTANGLE:
+			//Id(hW, IDM_RECTANGLE, 1, 0, 0, false, false);
+			id = IDM_RECTANGLE;
+			break;
+
+		case IDM_OPEN:
+			Open(hWnd);
+			break;
+		case IDM_SAVE:
+			Save(hWnd);
+			break;
+
+		
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
-		break;
+		break;	
+
 	case WM_PAINT:
 		// TODO: добавьте любой код отрисовки...
-		hdc = BeginPaint(hWnd, &ps);
-	
-		//(!pos.size()) ? NULL : MoveToEx(hdc, pos[0].x, pos[0].y, NULL);
-		//for (size_t i = 0; i<pos.size(); ++i)
-		//	(pos[i].x == -1 && i<pos.size() - 1) ? MoveToEx(hdc, pos[i + 1].x, pos[i + 1].y, NULL) : LineTo(hdc, pos[i].x, pos[i].y);
-
-		
-		
-		/*HPEN hPenOld;//used for storage
-		if (bDrawLine)//if line is selected
+		hdc2 = BeginPaint(hWnd, &ps);
+		switch (id)
 		{
-			//Draw a red line
-			HPEN hLinePen;//used for storage
-			COLORREF qLineColor;
-			qLineColor = RGB(255, 0, 0);
-			hLinePen = CreatePen(PS_SOLID, 7, qLineColor);//solid/dashed/dotted; width
-			hPenOld = (HPEN)SelectObject(hdc, hLinePen);//storing lod pen
 
-			MoveToEx(hdc, 100, 100, NULL);
-			LineTo(hdc, 500, 250);
-
-			SelectObject(hdc, hPenOld);
-			DeleteObject(hLinePen);
+			default:
+			{
+				GetClientRect(hWnd, &rect);
+				if (f == 0)
+				{
+					BitBlt(hdc2, 0, 0, rect.right, rect.bottom, hBitmapDC, 0, 0, SRCCOPY);
+				}
+				if (f == 1)
+				{
+					BitBlt(hdc2, 0, 0, rect.right, rect.bottom, hBitmapDC, 0, 0, SRCCOPY);
+					f = 0;
+				}
+				if (f == 2)
+				{
+					BitBlt(hdc2, 0, 0, rect.right, rect.bottom, hCompatibleDC, 0, 0, SRCCOPY);
+					f = 0;
+				}
+				break;
+			}
 		}
-		if (bDrawEllipse)//if ellipse is selected
-		{
-			//Draw a blue ellipse
-			HPEN hEllipsePen;
-			COLORREF qEllipseColor;
-			qEllipseColor = RGB(0, 0, 255);
-			hEllipsePen = CreatePen(PS_SOLID, 3, qEllipseColor);
-			hPenOld = (HPEN)SelectObject(hdc, hEllipsePen);
-
-			Arc(hdc, 100, 100, 500, 250, 0, 0, 0, 0);
-
-			SelectObject(hdc, hPenOld);
-			DeleteObject(hEllipsePen);
-		}
-		*/
-
 		EndPaint(hWnd, &ps);
 		break;
+
+
+
+	//case WM_SIZE:
+
+	case WM_LBUTTONDOWN:
+		switch (id){
+			case IDM_PEN:
+			case IDM_ELLIPSE:
+			case IDM_LINE:
+			case IDM_RECTANGLE:
+				x1 = x2 = (short)LOWORD(lParam);
+				y1 = y2 = (short)HIWORD(lParam);
+				
+				isPainting = true;
+				break;
+		}		
+		SetCapture(hWnd);
+		break;
+
+	case WM_MOUSEMOVE:
+		GetClientRect(hWnd, &rect);
+		
+		if (isPainting){
+			hCompatibleBitmap = CreateCompatibleBitmap(hdc, rect.right, rect.bottom);//bitmap created
+			DeleteObject(SelectObject(hCompatibleDC, hCompatibleBitmap));//created when created
+			BitBlt(hCompatibleDC, 0, 0, rect.right, rect.bottom, hBitmapDC, 0, 0, SRCCOPY);
+			switch (id)
+			{
+				case IDM_PEN:
+					x1 = LOWORD(lParam);
+					y1 = HIWORD(lParam);
+					MoveToEx(hCompatibleDC, x1, y1, NULL);
+					break;
+				case IDM_LINE:
+					x2 = (short)LOWORD(lParam);
+					y2 = (short)HIWORD(lParam);
+					MoveToEx(hCompatibleDC, x1, y1, NULL);
+					LineTo(hCompatibleDC, x2, y2);
+					break;
+				case IDM_ELLIPSE:
+					x2 = (short)LOWORD(lParam);
+					y2 = (short)HIWORD(lParam);
+					Ellipse(hCompatibleDC, x1, y1, x2, y2);
+					break;
+				case IDM_RECTANGLE:
+					x2 = (short)LOWORD(lParam);
+					y2 = (short)HIWORD(lParam);
+					Rectangle(hCompatibleDC, x1, y1, x2, y2);
+					break;
+				
+				
+				
+			}
+			f = 2;
+			InvalidateRect(hWnd, NULL, FALSE);
+			UpdateWindow(hWnd);
+
+		}
+		break;
+
+	case WM_LBUTTONUP:
+		ReleaseCapture();
+		GetClientRect(hWnd, &rect);
+		hCompatibleBitmap = CreateCompatibleBitmap(hdc, rect.right, rect.bottom);
+		DeleteObject(SelectObject(hCompatibleDC, hCompatibleBitmap));
+		BitBlt(hCompatibleDC, 0, 0, rect.right, rect.bottom, hBitmapDC, 0, 0, SRCCOPY);
+		isPainting = false;
+
+		x2 = (short)LOWORD(lParam);
+		y2 = (short)HIWORD(lParam);
+
+		switch (id)
+		{
+			case IDM_PEN:
+			case IDM_LINE:
+				MoveToEx(hdc1, x1, y1, NULL);
+				LineTo(hdc1, x2, y2);
+				MoveToEx(hBitmapDC, x1, y1, NULL);
+				LineTo(hBitmapDC, x2, y2);
+				break;
+			case IDM_ELLIPSE:
+				Ellipse(hdc1, x1, y1, x2, y2);
+				Ellipse(hBitmapDC, x1, y1, x2, y2);
+				break;
+			case IDM_RECTANGLE:
+				Rectangle(hdc1, x1, y1, x2, y2);
+				Rectangle(hBitmapDC, x1, y1, x2, y2);
+				break;
+		}
+		f = 1;
+		InvalidateRect(hWnd, NULL, FALSE);
+		UpdateWindow(hWnd);
+
+
+
+		break;
+
+
+
 	case WM_DESTROY:
+		
 		PostQuitMessage(0);
 		break;
 	default:
@@ -381,4 +416,131 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	}
 	return (INT_PTR)FALSE;
+}
+
+void TurrnOffBoolean(bool &p1, bool &p2, bool &p3, bool &p4)
+{
+	p1 = false;
+	p2 = false;
+	p3 = false;
+	p4 = false;
+}
+
+void assignId(int identifier)
+{//what figure is turned on
+	id = identifier;
+}
+
+void create(HWND h)
+{
+	hdc = GetDC(h);
+
+	GetClientRect(h, &rect);
+    hdc1 = CreateEnhMetaFile(NULL, NULL, NULL, NULL);//for metainformation
+	///
+
+	hBrush = (HBRUSH)GetStockObject(NULL_BRUSH);//initial brush	
+	SelectObject(hdc, hBrush);//apply brush to hdc
+	hPen = (HPEN)GetStockObject(BLACK_PEN);//initial black pen
+	SelectObject(hdc1, hBrush);//for enfanced metafile the same settings
+	SelectObject(hdc1, hPen);//for enfanced metafile the same settings
+
+	///
+	hCompatibleDC = CreateCompatibleDC(hdc);//to apply a bitmap and write there
+	hCompatibleBitmap = CreateCompatibleBitmap(hdc, rect.right, rect.bottom);//bitmap to draw
+	hBitmapDC = CreateCompatibleDC(hdc);//second dc to draw, second buffer
+	hBitmap = CreateCompatibleBitmap(hdc, rect.right, rect.bottom);//
+
+	//we should set the buffers' color,not monochromatic
+	DeleteObject(SelectObject(hCompatibleDC, hCompatibleBitmap));//free old bitmap
+	DeleteObject(SelectObject(hCompatibleDC, (HBRUSH)WHITE_BRUSH));//white background
+	PatBlt(hCompatibleDC, 0, 0, rect.right, rect.bottom, PATCOPY);
+	DeleteObject(SelectObject(hBitmapDC, hBitmap));
+	DeleteObject(SelectObject(hBitmapDC, (HBRUSH)WHITE_BRUSH));
+	PatBlt(hBitmapDC, 0, 0, rect.right, rect.bottom, PATCOPY);
+
+	DeleteObject(SelectObject(hCompatibleDC, hPen));//apply pen for drawing
+	DeleteObject(SelectObject(hCompatibleDC, hBrush));//apply null brush instead of white
+	//the same for the second buffer
+	DeleteObject(SelectObject(hBitmapDC, hPen));
+	DeleteObject(SelectObject(hBitmapDC, hBrush));
+
+	SelectObject(hdc, GetStockObject(SYSTEM_FIXED_FONT));
+	GetTextMetrics(hdc, &tm);
+	cxChar = tm.tmAveCharWidth;
+	cyChar = tm.tmHeight;
+	
+}
+
+void Save(HWND h)
+{
+	ofn.lStructSize = sizeof(OPENFILENAME);
+	ofn.hwndOwner = h;
+	ofn.hInstance = hInst;
+	ofn.lpstrFilter=(LPCWSTR)"Metafile (*.emf)\0*.emf\0Все файлы (*.*)\0*.*\0";
+	ofn.nFilterIndex = 1;
+	ofn.lpstrFile = (LPWSTR)fullpath;
+	ofn.nMaxFile = sizeof(fullpath);
+	ofn.lpstrFileTitle = (LPWSTR)filename;
+	ofn.nMaxFileTitle = sizeof(filename);
+	ofn.lpstrInitialDir = (LPCWSTR)dir;
+	ofn.lpstrTitle = (LPCWSTR)"Save file as...";
+	ofn.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY | OFN_EXPLORER;
+	if (GetSaveFileName(&ofn))
+	{
+		hEnhMtf = CloseEnhMetaFile(hdc1);
+		CopyEnhMetaFile(hEnhMtf, (LPCWSTR)fullpath);
+		hdc1 = CreateEnhMetaFile(NULL, NULL, NULL, NULL);
+		GetEnhMetaFileHeader(hEnhMtf, sizeof(ENHMETAHEADER), &emh);
+		SetRect(&rect, emh.rclBounds.left, emh.rclBounds.top, emh.rclBounds.right, emh.rclBounds.bottom);
+		DeleteObject(SelectObject(hdc1, hBrush));
+		DeleteObject(SelectObject(hdc1, hPen));
+		PlayEnhMetaFile(hdc1, hEnhMtf, &rect);
+		CloseEnhMetaFile((HDC)hEnhMtf);
+		DeleteEnhMetaFile(hEnhMtf);
+	}
+}
+
+void Open(HWND h)
+{
+	ofn.lStructSize = sizeof(OPENFILENAME);
+	ofn.hwndOwner = h;
+	ofn.hInstance = hInst;
+	ofn.lpstrFilter = (LPCWSTR)"Metafile (*.emf)\0*.emf\0Все файлы (*.*)\0*.*\0";
+	ofn.nFilterIndex = 1;
+	ofn.lpstrFile = (LPWSTR)fullpath;
+	ofn.nMaxFile = sizeof(fullpath);
+	ofn.lpstrFileTitle = (LPWSTR)filename;
+	ofn.nMaxFileTitle = sizeof(filename);
+	ofn.lpstrInitialDir = (LPCWSTR)dir;
+	ofn.lpstrTitle = (LPCWSTR)"Open file...";
+	ofn.Flags = OFN_EXPLORER | OFN_CREATEPROMPT | OFN_ALLOWMULTISELECT;
+	if (GetOpenFileName(&ofn))
+	{
+		scale = 1;
+		xBegin = 0;
+		yBegin = 0;
+		hdc1 = CreateEnhMetaFile(NULL, NULL, NULL, NULL);
+		hEnhMtf = GetEnhMetaFile((LPCWSTR)fullpath);
+		GetEnhMetaFileHeader(hEnhMtf, sizeof(ENHMETAHEADER), &emh);
+		SetRect(&rect, emh.rclBounds.left, emh.rclBounds.top, emh.rclBounds.right, emh.rclBounds.bottom);
+		DeleteObject(SelectObject(hdc1, hBrush));
+		DeleteObject(SelectObject(hdc1, hPen));
+		PlayEnhMetaFile(hdc1, hEnhMtf, &rect);
+
+		GetClientRect(h, &rect1);
+		DeleteDC(hBitmapDC);
+		hBitmapDC = CreateCompatibleDC(hdc);
+		hBitmap = CreateCompatibleBitmap(hdc, rect1.right, rect1.bottom);
+		DeleteObject(SelectObject(hBitmapDC, hBitmap));
+		DeleteObject(SelectObject(hBitmapDC, (HBRUSH)WHITE_BRUSH));
+		PatBlt(hBitmapDC, 0, 0, rect1.right, rect1.bottom, PATCOPY);
+		DeleteObject(SelectObject(hBitmapDC, hPen));
+		DeleteObject(SelectObject(hBitmapDC, hBrush));
+		PlayEnhMetaFile(hBitmapDC, hEnhMtf, &rect);
+
+		InvalidateRect(h, NULL, TRUE);
+		UpdateWindow(h);
+		DeleteEnhMetaFile(hEnhMtf);
+	}
 }

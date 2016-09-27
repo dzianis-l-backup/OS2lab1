@@ -11,8 +11,21 @@
 #define IDM_ABOUT				104
 #define IDM_EXIT				105
 
-#define IDM_LINE				110 //line definition
-#define IDM_ELLIPSE				111 //ellipse definition
+
+#define IDM_PEN	       1100 //pen definition
+#define IDM_LINE	   1200 //line definition
+#define IDM_ELLIPSE    1300 //ellipse definition
+#define IDM_RECTANGLE  1400 //rectangle definition
+#define IDM_POLYLINE   1500 //polyline definition
+#define IDM_POLYGON    1600 //polygon definition
+#define IDM_TEXT	   1700 //rectangle definition
+
+//menu definition 
+#define IDM_NEW                          1013
+#define IDM_SAVE                         1008
+#define IDM_OPEN                         1007
+#define IDM_PRINT                        1012
+
 
 #define IDI_OS2LAB1			107
 #define IDI_SMALL				108
