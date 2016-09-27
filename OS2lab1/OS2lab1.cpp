@@ -58,7 +58,7 @@ static int xBegin = 0, yBegin = 0, fl = 0;
 RECT rect1;
 
 static int width = 0;
-static CHOOSECOLOR cc1, cc2;
+static CHOOSECOLOR cc1, cc2;//1-st - for color pen, 2-nd - for color fill
 static COLORREF  crCustColor[16];
 
 //prototypes list
@@ -68,6 +68,7 @@ void Open(HWND h);
 void setWidth(int w);
 void colPen(HWND h);
 void colFill(HWND h);
+void New(HWND h);
 
 // Отправить объявления функций, включенных в этот модуль кода:
 ATOM				MyRegisterClass(HINSTANCE hInstance);
@@ -307,6 +308,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			DeleteObject(SelectObject(hBitmapDC, hBrush));
 			DeleteObject(SelectObject(hdc1, hBrush));
 			break;
+
+		case IDM_NEW:
+			New(hWnd);
+			break;
+			
 		
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
@@ -648,4 +654,33 @@ void colFill(HWND h)
 		DeleteObject(SelectObject(hBitmapDC, hBrush));
 		DeleteObject(SelectObject(hdc1, hBrush));
 	}
+}
+
+void New(HWND h)
+{
+	GetClientRect(h, &rect);
+	hdc1 = CreateEnhMetaFile(NULL, NULL, NULL, NULL);
+	///
+	DeleteObject(SelectObject(hdc1, hBrush));
+	DeleteObject(SelectObject(hdc1, hPen));
+
+	width = 0;
+	DeleteObject(hCompatibleDC);
+	DeleteObject(hBitmapDC);
+	hCompatibleDC = CreateCompatibleDC(hdc);
+	hCompatibleBitmap = CreateCompatibleBitmap(hdc, rect.right, rect.bottom);
+	DeleteObject(SelectObject(hCompatibleDC, hCompatibleBitmap));
+	DeleteObject(SelectObject(hCompatibleDC, (HBRUSH)WHITE_BRUSH));
+	PatBlt(hCompatibleDC, 0, 0, rect.right, rect.bottom, PATCOPY);
+	DeleteObject(SelectObject(hCompatibleDC, hPen));
+	DeleteObject(SelectObject(hCompatibleDC, hBrush));
+	hBitmapDC = CreateCompatibleDC(hdc);
+	hBitmap = CreateCompatibleBitmap(hdc, rect.right, rect.bottom);
+	DeleteObject(SelectObject(hBitmapDC, hBitmap));
+	DeleteObject(SelectObject(hBitmapDC, (HBRUSH)WHITE_BRUSH));
+	PatBlt(hBitmapDC, 0, 0, rect.right, rect.bottom, PATCOPY);
+	DeleteObject(SelectObject(hBitmapDC, hPen));
+	DeleteObject(SelectObject(hBitmapDC, hBrush));
+	InvalidateRect(h, NULL, TRUE);
+	UpdateWindow(h);
 }
