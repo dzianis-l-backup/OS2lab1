@@ -57,10 +57,17 @@ static double scale;
 static int xBegin = 0, yBegin = 0, fl = 0;
 RECT rect1;
 
+static int width = 0;
+static CHOOSECOLOR cc1, cc2;
+static COLORREF  crCustColor[16];
+
 //prototypes list
 void create(HWND h);
 void Save(HWND h);
 void Open(HWND h);
+void setWidth(int w);
+void colPen(HWND h);
+void colFill(HWND h);
 
 // Отправить объявления функций, включенных в этот модуль кода:
 ATOM				MyRegisterClass(HINSTANCE hInstance);
@@ -254,6 +261,52 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			Save(hWnd);
 			break;
 
+
+		case IDM_1:
+			setWidth(1);
+			break;
+		case IDM_2:
+			setWidth(2);
+			break;
+		case IDM_3:
+			setWidth(3);
+			break;
+		case IDM_4:
+			setWidth(4);
+			break;
+		case IDM_5:
+			setWidth(5);
+			break;
+		case IDM_6:
+			setWidth(6);
+			break;
+		case IDM_7:
+			setWidth(7);
+			break;
+		case IDM_8:
+			setWidth(8);
+			break;
+		case IDM_9:
+			setWidth(9);
+			break;
+		case IDM_10:
+			setWidth(10);
+			break;
+
+
+		case IDM_COLORPEN:
+			colPen(hWnd);
+			break;
+		case IDM_COLORFILL:
+			colFill(hWnd);
+			break;
+		case IDM_COLORNONE:
+			DeleteObject(hBrush);
+			hBrush = (HBRUSH)GetStockObject(NULL_BRUSH);
+			DeleteObject(SelectObject(hCompatibleDC, hBrush));
+			DeleteObject(SelectObject(hBitmapDC, hBrush));
+			DeleteObject(SelectObject(hdc1, hBrush));
+			break;
 		
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
@@ -445,7 +498,7 @@ void create(HWND h)
 	SelectObject(hdc1, hBrush);//for enfanced metafile the same settings
 	SelectObject(hdc1, hPen);//for enfanced metafile the same settings
 
-	///
+	width = 0;
 	hCompatibleDC = CreateCompatibleDC(hdc);//to apply a bitmap and write there
 	hCompatibleBitmap = CreateCompatibleBitmap(hdc, rect.right, rect.bottom);//bitmap to draw
 	hBitmapDC = CreateCompatibleDC(hdc);//second dc to draw, second buffer
@@ -477,14 +530,14 @@ void Save(HWND h)
 	ofn.lStructSize = sizeof(OPENFILENAME);
 	ofn.hwndOwner = h;
 	ofn.hInstance = hInst;
-	ofn.lpstrFilter=(LPCWSTR)"Metafile (*.emf)\0*.emf\0Все файлы (*.*)\0*.*\0";
+	ofn.lpstrFilter=L"Metafile (*.emf)\0*.emf\0Все файлы (*.*)\0*.*\0";
 	ofn.nFilterIndex = 1;
 	ofn.lpstrFile = (LPWSTR)fullpath;
 	ofn.nMaxFile = sizeof(fullpath);
 	ofn.lpstrFileTitle = (LPWSTR)filename;
 	ofn.nMaxFileTitle = sizeof(filename);
 	ofn.lpstrInitialDir = (LPCWSTR)dir;
-	ofn.lpstrTitle = (LPCWSTR)"Save file as...";
+	ofn.lpstrTitle = L"Save file as...";
 	ofn.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY | OFN_EXPLORER;
 	if (GetSaveFileName(&ofn))
 	{
@@ -506,14 +559,14 @@ void Open(HWND h)
 	ofn.lStructSize = sizeof(OPENFILENAME);
 	ofn.hwndOwner = h;
 	ofn.hInstance = hInst;
-	ofn.lpstrFilter = (LPCWSTR)"Metafile (*.emf)\0*.emf\0Все файлы (*.*)\0*.*\0";
+	ofn.lpstrFilter = L"Metafile (*.emf)\0*.emf\0Все файлы (*.*)\0*.*\0";
 	ofn.nFilterIndex = 1;
 	ofn.lpstrFile = (LPWSTR)fullpath;
 	ofn.nMaxFile = sizeof(fullpath);
 	ofn.lpstrFileTitle = (LPWSTR)filename;
 	ofn.nMaxFileTitle = sizeof(filename);
 	ofn.lpstrInitialDir = (LPCWSTR)dir;
-	ofn.lpstrTitle = (LPCWSTR)"Open file...";
+	ofn.lpstrTitle = L"Open file...";
 	ofn.Flags = OFN_EXPLORER | OFN_CREATEPROMPT | OFN_ALLOWMULTISELECT;
 	if (GetOpenFileName(&ofn))
 	{
@@ -542,5 +595,57 @@ void Open(HWND h)
 		InvalidateRect(h, NULL, TRUE);
 		UpdateWindow(h);
 		DeleteEnhMetaFile(hEnhMtf);
+	}
+}
+
+void setWidth(int w)
+{
+	width = w;
+	DeleteObject(hPen);
+	hPen = CreatePen(PS_SOLID, width, cc1.rgbResult);
+	DeleteObject(SelectObject(hCompatibleDC, hPen));
+	DeleteObject(SelectObject(hBitmapDC, hPen));
+	DeleteObject(SelectObject(hdc1, hPen));
+}
+
+void colPen(HWND h)
+{
+	cc1.lStructSize = sizeof(CHOOSECOLOR);
+	cc1.hInstance = NULL;
+	cc1.hwndOwner = h;
+	cc1.lpCustColors = crCustColor;
+	cc1.Flags = CC_RGBINIT | CC_FULLOPEN;
+	cc1.lCustData = 0L;
+	cc1.lpfnHook = NULL;
+	cc1.rgbResult = RGB(0x80, 0x80, 0x80);
+	cc1.lpTemplateName = NULL;
+	if (ChooseColor(&cc1))
+	{
+		DeleteObject(hPen);
+		hPen = CreatePen(PS_SOLID, width, cc1.rgbResult);
+		DeleteObject(SelectObject(hCompatibleDC, hPen));
+		DeleteObject(SelectObject(hBitmapDC, hPen));
+		DeleteObject(SelectObject(hdc1, hPen));
+	}
+}
+
+void colFill(HWND h)
+{
+	cc2.lStructSize = sizeof(CHOOSECOLOR);
+	cc2.hInstance = NULL;
+	cc2.hwndOwner = h;
+	cc2.lpCustColors = crCustColor;
+	cc2.Flags = CC_RGBINIT | CC_FULLOPEN;
+	cc2.lCustData = 0L;
+	cc2.lpfnHook = NULL;
+	cc2.rgbResult = RGB(0x80, 0x80, 0x80);
+	cc2.lpTemplateName = NULL;
+	if (ChooseColor(&cc2))
+	{
+		DeleteObject(hBrush);
+		hBrush = CreateSolidBrush(cc2.rgbResult);
+		DeleteObject(SelectObject(hCompatibleDC, hBrush));
+		DeleteObject(SelectObject(hBitmapDC, hBrush));
+		DeleteObject(SelectObject(hdc1, hBrush));
 	}
 }
