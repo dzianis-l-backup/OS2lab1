@@ -60,6 +60,15 @@ RECT rect1;
 static int width = 0;
 static CHOOSECOLOR cc1, cc2;//1-st - for color pen, 2-nd - for color fill
 static COLORREF  crCustColor[16];
+static bool b, bPoly, bText, flag, bPolyline;
+static int xT, yT;
+static string text;
+int zDelta;
+static int xx1, yy1;
+HDC hdcMem;
+HBITMAP hbmMem;
+HANDLE hOld;
+static bool bScaled = FALSE;
 
 //prototypes list
 void create(HWND h);
@@ -69,6 +78,7 @@ void setWidth(int w);
 void colPen(HWND h);
 void colFill(HWND h);
 void New(HWND h);
+void Id(HWND h, int i, int s, int x, int y, bool pol, bool line);
 
 // Отправить объявления функций, включенных в этот модуль кода:
 ATOM				MyRegisterClass(HINSTANCE hInstance);
@@ -218,7 +228,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		//variables scope
 
 		
-
+		bText = false;
 		// Разобрать выбор в меню:
 		switch (wmId)
 		{
@@ -232,27 +242,33 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		//ellipse rect roundRect line
 
 		case IDM_PEN:
-			
-			id = IDM_PEN;
+			Id(hWnd, IDM_PEN, 1, 0, 0, false, false);
 			break;
-
 		case IDM_LINE:
-		
-			//TurrnOffBoolean(isPen,isLine,isEllipse,isRectanle);
-			//isLine = true;
-			id = IDM_LINE;
+			Id(hWnd, IDM_LINE, 1, 0, 0, false, false);
 			break;
-
 		case IDM_ELLIPSE:
-
-			//TurrnOffBoolean(isLine, isEllipse);
-			//isEllipse = true;
-			id = IDM_ELLIPSE;
+			Id(hWnd, IDM_ELLIPSE, 1, 0, 0, false, false);
 			break;
-		
 		case IDM_RECTANGLE:
-			//Id(hW, IDM_RECTANGLE, 1, 0, 0, false, false);
-			id = IDM_RECTANGLE;
+			Id(hWnd, IDM_RECTANGLE, 1, 0, 0, false, false);
+			break;
+		case IDM_POLYLINE:
+			Id(hWnd, IDM_POLYLINE, 1, 0, yBegin, false, bPolyline);
+			break;
+		case IDM_POLYGON:
+			Id(hWnd, IDM_POLYGON, 1, 0, 0, bPoly, false);
+			break;
+		case IDM_TEXT:
+			Id(hWnd, IDM_TEXT, 1, 0, 0, false, false);
+			break;
+		case IDM_ZOOM:
+			id = IDM_ZOOM;
+			bScaled = TRUE;
+			InvalidateRect(hWnd, NULL, FALSE);
+			break;
+		case IDM_PAN:
+			id = IDM_PAN;
 			break;
 
 		case IDM_OPEN:
@@ -324,7 +340,25 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		hdc2 = BeginPaint(hWnd, &ps);
 		switch (id)
 		{
-
+		case IDM_ZOOM:
+		case IDM_PAN:
+		{
+			GetClientRect(hWnd, &rect);
+			hdcMem = CreateCompatibleDC(hdc);
+			hbmMem = CreateCompatibleBitmap(hdc, rect.right, rect.bottom);
+			hOld = SelectObject(hdcMem, hbmMem);
+			FillRect(hdcMem, &rect, WHITE_BRUSH);
+			StretchBlt(hdcMem, 0, 0, (int)(rect.right*scale), (int)(rect.bottom*scale),
+				hBitmapDC, xBegin, yBegin, rect.right, rect.bottom, SRCCOPY);
+			SelectObject(hdcMem, (HBRUSH)GetStockObject(NULL_BRUSH));
+			SelectObject(hdcMem, (HPEN)GetStockObject(BLACK_PEN));
+			Rectangle(hdcMem, 0, 0, (int)(rect.right*scale), (int)(rect.bottom*scale));
+			BitBlt(hdc2, 0, 0, rect.right, rect.bottom, hdcMem, 0, 0, SRCCOPY);
+			SelectObject(hdcMem, hOld);
+			DeleteObject(hbmMem);
+			DeleteDC(hdcMem);
+			break;
+		}
 			default:
 			{
 				GetClientRect(hWnd, &rect);
@@ -353,6 +387,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	//case WM_SIZE:
 
 	case WM_LBUTTONDOWN:
+		if (id == IDM_ZOOM)
+			id = IDM_PAN;
 		switch (id){
 			case IDM_PEN:
 			case IDM_ELLIPSE:
@@ -361,25 +397,59 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				x1 = x2 = (short)LOWORD(lParam);
 				y1 = y2 = (short)HIWORD(lParam);
 				
-				isPainting = true;
+				
+				break;
+
+			case IDM_POLYLINE:
+			case IDM_POLYGON:
+				if (bPolyline == true)
+					bPolyline = false;
+				if (bPoly == false)
+				{
+					x0 = x1 = x2 = (short)LOWORD(lParam);
+					y0 = y1 = y2 = (short)HIWORD(lParam);
+					bPoly = true;
+				}
+				
+				break;
+			case IDM_TEXT:
+				bText = true;
+				break;
+			case IDM_PAN:
+				x1 = x2 = (short)((short)LOWORD(lParam) / scale);
+				y1 = y2 = (short)((short)HIWORD(lParam) / scale);
 				break;
 		}		
 		SetCapture(hWnd);
+		//isPainting = true;
+		b = true;
 		break;
 
 	case WM_MOUSEMOVE:
-		GetClientRect(hWnd, &rect);
-		
-		if (isPainting){
+		GetClientRect(hWnd, &rect);		
+		if (b && (bPoly == false) && bText == false)
+		{
 			hCompatibleBitmap = CreateCompatibleBitmap(hdc, rect.right, rect.bottom);//bitmap created
 			DeleteObject(SelectObject(hCompatibleDC, hCompatibleBitmap));//created when created
 			BitBlt(hCompatibleDC, 0, 0, rect.right, rect.bottom, hBitmapDC, 0, 0, SRCCOPY);
 			switch (id)
 			{
 				case IDM_PEN:
-					x1 = LOWORD(lParam);
-					y1 = HIWORD(lParam);
+					x2 = LOWORD(lParam);
+					y2 = HIWORD(lParam);
+					MoveToEx(hBitmapDC, x1, y1, NULL);
+					LineTo(hBitmapDC, x2, y2);
+					
+					MoveToEx(hdc1, x1, y1, NULL);
+					LineTo(hdc1, x2, y2);
+
 					MoveToEx(hCompatibleDC, x1, y1, NULL);
+					LineTo(hCompatibleDC, x2, y2);
+
+					
+					
+					x1 = x2;
+					y1 = y2;
 					break;
 				case IDM_LINE:
 					x2 = (short)LOWORD(lParam);
@@ -397,6 +467,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 					y2 = (short)HIWORD(lParam);
 					Rectangle(hCompatibleDC, x1, y1, x2, y2);
 					break;
+				case IDM_PAN:
+					x1 = (short)((short)LOWORD(lParam) / scale);
+					y1 = (short)((short)HIWORD(lParam) / scale);
+					xBegin += (x2 - x1);
+					yBegin += (y2 - y1);
+					x2 = x1;
+					y2 = y1;
+					break;
 				
 				
 				
@@ -405,23 +483,48 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			InvalidateRect(hWnd, NULL, FALSE);
 			UpdateWindow(hWnd);
 
+
 		}
+		if (b&&bPoly&&bText == false)
+		{
+			hCompatibleBitmap = CreateCompatibleBitmap(hdc, rect.right, rect.bottom);
+			DeleteObject(SelectObject(hCompatibleDC, hCompatibleBitmap));
+			BitBlt(hCompatibleDC, 0, 0, rect.right, rect.bottom, hBitmapDC, 0, 0, SRCCOPY);
+			x2 = (short)LOWORD(lParam);
+			y2 = (short)HIWORD(lParam);
+			MoveToEx(hCompatibleDC, x1, y1, NULL);
+			LineTo(hCompatibleDC, x2, y2);
+			f = 2;
+			InvalidateRect(hWnd, NULL, FALSE);
+			UpdateWindow(hWnd);
+		}
+		break;
+
+
 		break;
 
 	case WM_LBUTTONUP:
 		ReleaseCapture();
+		if (bText)
+		{
+			xT = (short)LOWORD(lParam);
+			yT = (short)HIWORD(lParam);
+			text.clear();
+			b = false;
+			break;
+		}
 		GetClientRect(hWnd, &rect);
 		hCompatibleBitmap = CreateCompatibleBitmap(hdc, rect.right, rect.bottom);
 		DeleteObject(SelectObject(hCompatibleDC, hCompatibleBitmap));
 		BitBlt(hCompatibleDC, 0, 0, rect.right, rect.bottom, hBitmapDC, 0, 0, SRCCOPY);
-		isPainting = false;
-
-		x2 = (short)LOWORD(lParam);
-		y2 = (short)HIWORD(lParam);
-
-		switch (id)
+		if (b && (bPoly == false))
 		{
+			x2 = (short)LOWORD(lParam);
+			y2 = (short)HIWORD(lParam);
+			switch (id)
+			{
 			case IDM_PEN:
+				
 			case IDM_LINE:
 				MoveToEx(hdc1, x1, y1, NULL);
 				LineTo(hdc1, x2, y2);
@@ -436,14 +539,83 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				Rectangle(hdc1, x1, y1, x2, y2);
 				Rectangle(hBitmapDC, x1, y1, x2, y2);
 				break;
+			}
+			f = 1;
+			InvalidateRect(hWnd, NULL, FALSE);
+			UpdateWindow(hWnd);
+			b = false;
 		}
-		f = 1;
+		if (b&&bPoly)
+		{
+			MoveToEx(hdc1, x1, y1, NULL);
+			MoveToEx(hBitmapDC, x1, y1, NULL);
+			x2 = (short)LOWORD(lParam);
+			y2 = (short)HIWORD(lParam);
+			LineTo(hdc1, x2, y2);
+			LineTo(hBitmapDC, x2, y2);
+			x1 = x2;
+			y1 = y2;
+			b = false;
+			f = 1;
+			InvalidateRect(hWnd, NULL, FALSE);
+			UpdateWindow(hWnd);
+		}
+		break;
+
+	case WM_RBUTTONUP:
+		if (bPoly)
+		{
+			x2 = (short)LOWORD(lParam);
+			y2 = (short)HIWORD(lParam);
+			MoveToEx(hdc1, x1, y1, NULL);
+			LineTo(hdc1, x2, y2);
+			MoveToEx(hBitmapDC, x1, y1, NULL);
+			LineTo(hBitmapDC, x2, y2);
+			if (id == IDM_POLYGON)
+			{
+				LineTo(hdc1, x0, y0);
+				LineTo(hBitmapDC, x0, y0);
+			}
+			bPoly = false;
+			bPolyline = false;
+			f = 1;
+			InvalidateRect(hWnd, NULL, FALSE);
+			UpdateWindow(hWnd);
+		}
+
+
+	case WM_MOUSEWHEEL:
+		bText = false;
+		if (id != IDM_ZOOM&&id != IDM_PAN)
+		{
+			scale = 1;
+			id = IDM_PAN;
+		}
+		zDelta = GET_WHEEL_DELTA_WPARAM(wParam);
+		if ((zDelta>0) && (scale<3))
+			scale = scale + 0.03;
+		if ((zDelta<0) && (scale>0.3))
+			scale = scale - 0.03;
 		InvalidateRect(hWnd, NULL, FALSE);
 		UpdateWindow(hWnd);
-
-
-
 		break;
+
+
+	case  WM_CHAR:
+		if (bText)
+		{
+			char c = (char)wParam;
+			if (c == VK_RETURN)
+				bText = false;
+			else
+				text += c;
+			TextOut(hBitmapDC, xT, yT,text.c_str(), strlen(text.c_str()));
+			TextOut(hdc1, xT, yT, text.c_str(), strlen(text.c_str()));
+			InvalidateRect(hWnd, NULL, FALSE);
+			UpdateWindow(hWnd);
+		}
+		break;
+
 
 
 
@@ -536,19 +708,19 @@ void Save(HWND h)
 	ofn.lStructSize = sizeof(OPENFILENAME);
 	ofn.hwndOwner = h;
 	ofn.hInstance = hInst;
-	ofn.lpstrFilter=L"Metafile (*.emf)\0*.emf\0Все файлы (*.*)\0*.*\0";
+	ofn.lpstrFilter="Metafile (*.emf)\0*.emf\0Все файлы (*.*)\0*.*\0";
 	ofn.nFilterIndex = 1;
-	ofn.lpstrFile = (LPWSTR)fullpath;
+	ofn.lpstrFile = fullpath;
 	ofn.nMaxFile = sizeof(fullpath);
-	ofn.lpstrFileTitle = (LPWSTR)filename;
+	ofn.lpstrFileTitle = filename;
 	ofn.nMaxFileTitle = sizeof(filename);
-	ofn.lpstrInitialDir = (LPCWSTR)dir;
-	ofn.lpstrTitle = L"Save file as...";
+	ofn.lpstrInitialDir = dir;
+	ofn.lpstrTitle = "Save file as...";
 	ofn.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY | OFN_EXPLORER;
 	if (GetSaveFileName(&ofn))
 	{
 		hEnhMtf = CloseEnhMetaFile(hdc1);
-		CopyEnhMetaFile(hEnhMtf, (LPCWSTR)fullpath);
+		CopyEnhMetaFile(hEnhMtf, fullpath);
 		hdc1 = CreateEnhMetaFile(NULL, NULL, NULL, NULL);
 		GetEnhMetaFileHeader(hEnhMtf, sizeof(ENHMETAHEADER), &emh);
 		SetRect(&rect, emh.rclBounds.left, emh.rclBounds.top, emh.rclBounds.right, emh.rclBounds.bottom);
@@ -565,14 +737,14 @@ void Open(HWND h)
 	ofn.lStructSize = sizeof(OPENFILENAME);
 	ofn.hwndOwner = h;
 	ofn.hInstance = hInst;
-	ofn.lpstrFilter = L"Metafile (*.emf)\0*.emf\0Все файлы (*.*)\0*.*\0";
+	ofn.lpstrFilter = "Metafile (*.emf)\0*.emf\0Все файлы (*.*)\0*.*\0";
 	ofn.nFilterIndex = 1;
-	ofn.lpstrFile = (LPWSTR)fullpath;
+	ofn.lpstrFile = fullpath;
 	ofn.nMaxFile = sizeof(fullpath);
-	ofn.lpstrFileTitle = (LPWSTR)filename;
+	ofn.lpstrFileTitle = filename;
 	ofn.nMaxFileTitle = sizeof(filename);
-	ofn.lpstrInitialDir = (LPCWSTR)dir;
-	ofn.lpstrTitle = L"Open file...";
+	ofn.lpstrInitialDir = dir;
+	ofn.lpstrTitle = "Open file...";
 	ofn.Flags = OFN_EXPLORER | OFN_CREATEPROMPT | OFN_ALLOWMULTISELECT;
 	if (GetOpenFileName(&ofn))
 	{
@@ -580,7 +752,7 @@ void Open(HWND h)
 		xBegin = 0;
 		yBegin = 0;
 		hdc1 = CreateEnhMetaFile(NULL, NULL, NULL, NULL);
-		hEnhMtf = GetEnhMetaFile((LPCWSTR)fullpath);
+		hEnhMtf = GetEnhMetaFile(fullpath);
 		GetEnhMetaFileHeader(hEnhMtf, sizeof(ENHMETAHEADER), &emh);
 		SetRect(&rect, emh.rclBounds.left, emh.rclBounds.top, emh.rclBounds.right, emh.rclBounds.bottom);
 		DeleteObject(SelectObject(hdc1, hBrush));
@@ -683,4 +855,17 @@ void New(HWND h)
 	DeleteObject(SelectObject(hBitmapDC, hBrush));
 	InvalidateRect(h, NULL, TRUE);
 	UpdateWindow(h);
+}
+
+void Id(HWND h, int i, int s, int x, int y, bool pol, bool line)
+{
+	id = i;
+	scale = s;
+	xBegin = x;
+	yBegin = y;
+	xx1 = x;
+	yy1 = y;
+	bPoly = pol;
+	bPolyline = line;
+	InvalidateRect(h, NULL, FALSE);
 }

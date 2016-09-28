@@ -39,6 +39,10 @@
 #define IDM_COLORPEN                     1009
 #define IDM_COLORNONE                    1023
 #define IDM_COLORFILL                    1024
+#define IDC_GRAPHICSEDITOR              109
+#define IDM_ZOOM                         1010
+#define IDM_PAN                          1011
+
 
 #define IDI_OS2LAB1			107
 #define IDI_SMALL				108
