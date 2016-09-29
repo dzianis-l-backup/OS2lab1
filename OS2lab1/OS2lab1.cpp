@@ -69,6 +69,7 @@ HDC hdcMem;
 HBITMAP hbmMem;
 HANDLE hOld;
 static bool bScaled = FALSE;
+PRINTDLG pd;
 
 //prototypes list
 void create(HWND h);
@@ -79,6 +80,7 @@ void colPen(HWND h);
 void colFill(HWND h);
 void New(HWND h);
 void Id(HWND h, int i, int s, int x, int y, bool pol, bool line);
+void Print(HWND h);
 
 // Отправить объявления функций, включенных в этот модуль кода:
 ATOM				MyRegisterClass(HINSTANCE hInstance);
@@ -270,7 +272,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case IDM_PAN:
 			id = IDM_PAN;
 			break;
-
+		case IDM_PRINT:
+			Print(hWnd);
+			break;
 		case IDM_OPEN:
 			Open(hWnd);
 			break;
@@ -331,6 +335,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			
 		
 		default:
+			id = 0;
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
 		break;	
@@ -349,7 +354,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			hOld = SelectObject(hdcMem, hbmMem);
 			FillRect(hdcMem, &rect, WHITE_BRUSH);
 			StretchBlt(hdcMem, 0, 0, (int)(rect.right*scale), (int)(rect.bottom*scale),
-				hBitmapDC, xBegin, yBegin, rect.right, rect.bottom, SRCCOPY);
+			hBitmapDC, xBegin, yBegin, rect.right, rect.bottom, SRCCOPY);
 			SelectObject(hdcMem, (HBRUSH)GetStockObject(NULL_BRUSH));
 			SelectObject(hdcMem, (HPEN)GetStockObject(BLACK_PEN));
 			Rectangle(hdcMem, 0, 0, (int)(rect.right*scale), (int)(rect.bottom*scale));
@@ -381,7 +386,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		EndPaint(hWnd, &ps);
 		break;
-
+	
 
 
 	//case WM_SIZE:
@@ -582,7 +587,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			InvalidateRect(hWnd, NULL, FALSE);
 			UpdateWindow(hWnd);
 		}
-
+		break;
 
 	case WM_MOUSEWHEEL:
 		bText = false;
@@ -619,8 +624,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 
 
+	case WM_ERASEBKGND:
+		GetClientRect(hWnd, &rect);
+		FillRect(hdc, &rect, WHITE_BRUSH);
+		break;
 	case WM_DESTROY:
-		
+		ReleaseDC(hWnd, hdc);
+		hEnhMtf = CloseEnhMetaFile(hdc1);
+		DeleteEnhMetaFile(hEnhMtf);
 		PostQuitMessage(0);
 		break;
 	default:
@@ -668,6 +679,7 @@ void create(HWND h)
 
 	GetClientRect(h, &rect);
     hdc1 = CreateEnhMetaFile(NULL, NULL, NULL, NULL);//for metainformation
+	flag = false;
 	///
 
 	hBrush = (HBRUSH)GetStockObject(NULL_BRUSH);//initial brush	
@@ -832,7 +844,7 @@ void New(HWND h)
 {
 	GetClientRect(h, &rect);
 	hdc1 = CreateEnhMetaFile(NULL, NULL, NULL, NULL);
-	///
+	flag = false;
 	DeleteObject(SelectObject(hdc1, hBrush));
 	DeleteObject(SelectObject(hdc1, hPen));
 
@@ -868,4 +880,52 @@ void Id(HWND h, int i, int s, int x, int y, bool pol, bool line)
 	bPoly = pol;
 	bPolyline = line;
 	InvalidateRect(h, NULL, FALSE);
+}
+
+void Print(HWND h)
+{
+	double coef = 0.5;
+	ZeroMemory(&pd, sizeof(pd));
+	pd.lStructSize = sizeof(pd);
+	pd.hwndOwner = h;
+	pd.hDevMode = NULL;
+	pd.hDevNames = NULL;
+	pd.Flags = PD_USEDEVMODECOPIESANDCOLLATE | PD_RETURNDC;
+	pd.nCopies = 1;
+	pd.nFromPage = 1;
+	pd.nToPage = 1;
+	pd.nMinPage = 1;
+	pd.nMaxPage = 1;
+	if (PrintDlg(&pd) == TRUE)
+	{
+		int Rx = GetDeviceCaps(pd.hDC, LOGPIXELSX);
+		int Ry = GetDeviceCaps(pd.hDC, LOGPIXELSY);
+		di.cbSize = sizeof(DOCINFO);
+		di.lpszDocName = "Print Picture";
+		di.fwType = NULL;
+		di.lpszDatatype = NULL;
+		di.lpszOutput = NULL;
+		StartDoc(pd.hDC, &di);
+		StartPage(pd.hDC);
+		GetClientRect(h, &rect);
+		hdcMem = CreateCompatibleDC(hdc);
+		hbmMem = CreateCompatibleBitmap(hdc, rect.right, rect.bottom);
+		int Rx1 = GetDeviceCaps(hdcMem, LOGPIXELSX);
+		int Ry1 = GetDeviceCaps(hdcMem, LOGPIXELSY);
+		hOld = SelectObject(hdcMem, hbmMem);
+		FillRect(hdcMem, &rect, WHITE_BRUSH);
+		StretchBlt(hdcMem, 0, 0, (int)(rect.right*scale), (int)(rect.bottom*scale),
+			hBitmapDC, xBegin, yBegin, rect.right, rect.bottom, SRCCOPY);
+		SelectObject(hdcMem, (HBRUSH)GetStockObject(NULL_BRUSH));
+		SelectObject(hdcMem, (HPEN)GetStockObject(BLACK_PEN));
+		Rectangle(hdcMem, 0, 0, (int)(rect.right*scale), (int)(rect.bottom*scale));
+		StretchBlt(pd.hDC, 0, 0, (int)((float)(coef*rect.right*((float)(Rx / Rx1)))), (int)((float)(coef*rect.bottom*((float)(Ry / Ry1)))),
+			hdcMem, 0, 0, rect.right, rect.bottom, SRCCOPY);
+		SelectObject(hdcMem, hOld);
+		DeleteObject(hbmMem);
+		DeleteDC(hdcMem);
+		EndPage(pd.hDC);
+		EndDoc(pd.hDC);
+		DeleteDC(pd.hDC);
+	}
 }
