@@ -1,4 +1,4 @@
-﻿Сборка начата 29.09.2016 23:34:02.
+﻿Сборка начата 30.09.2016 3:35:40.
      1>Проект "C:\Users\DziLean\Documents\Visual Studio 2013\Projects\OS2lab1\OS2lab1\OS2lab1.vcxproj" в узле 2 (целевые объекты Build).
      1>ClCompile:
          C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _WINDOWS /D _MBCS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Yu"stdafx.h" /Fp"Debug\OS2lab1.pch" /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt OS2lab1.cpp
@@ -12,4 +12,4 @@
 
 Сборка успешно завершена.
 
-Затраченное время: 00:00:02.18
+Затраченное время: 00:00:02.02

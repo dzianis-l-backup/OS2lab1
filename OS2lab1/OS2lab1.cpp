@@ -70,6 +70,9 @@ HBITMAP hbmMem;
 HANDLE hOld;
 static bool bScaled = FALSE;
 PRINTDLG pd;
+static DOCINFO di;
+bool isPrint=false;
+bool mouseDown=false;
 
 //prototypes list
 void create(HWND h);
@@ -80,7 +83,7 @@ void colPen(HWND h);
 void colFill(HWND h);
 void New(HWND h);
 void Id(HWND h, int i, int s, int x, int y, bool pol, bool line);
-void Print(HWND h);
+void Print(HWND h, int x1, int x2, int y1, int y2);
 
 // ќтправить объ€влени€ функций, включенных в этот модуль кода:
 ATOM				MyRegisterClass(HINSTANCE hInstance);
@@ -171,7 +174,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
    hInst = hInstance; // —охранить дескриптор экземпл€ра в глобальной переменной
 
-   hWnd = CreateWindow(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
+   hWnd = CreateWindow(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW | WS_MAXIMIZE,
       CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, NULL, NULL, hInstance, NULL);
 
    if (!hWnd)
@@ -179,7 +182,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
       return FALSE;
    }
 
-   ShowWindow(hWnd, nCmdShow);
+   ShowWindow(hWnd, SW_MAXIMIZE);
    UpdateWindow(hWnd);
 
    return TRUE;
@@ -273,7 +276,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			id = IDM_PAN;
 			break;
 		case IDM_PRINT:
-			Print(hWnd);
+			isPrint = true; 
 			break;
 		case IDM_OPEN:
 			Open(hWnd);
@@ -392,17 +395,22 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	//case WM_SIZE:
 
 	case WM_LBUTTONDOWN:
-		if (id == IDM_ZOOM)
-			id = IDM_PAN;
-		switch (id){
+		mouseDown = true;
+		if (isPainting){
+			x1 = x2 = (short)LOWORD(lParam);
+			y1 = y2 = (short)HIWORD(lParam);	
+			break;
+		}
+		else{
+			if (id == IDM_ZOOM)
+				id = IDM_PAN;
+			switch (id){
 			case IDM_PEN:
 			case IDM_ELLIPSE:
 			case IDM_LINE:
 			case IDM_RECTANGLE:
 				x1 = x2 = (short)LOWORD(lParam);
 				y1 = y2 = (short)HIWORD(lParam);
-				
-				
 				break;
 
 			case IDM_POLYLINE:
@@ -415,7 +423,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 					y0 = y1 = y2 = (short)HIWORD(lParam);
 					bPoly = true;
 				}
-				
+
 				break;
 			case IDM_TEXT:
 				bText = true;
@@ -424,35 +432,63 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				x1 = x2 = (short)((short)LOWORD(lParam) / scale);
 				y1 = y2 = (short)((short)HIWORD(lParam) / scale);
 				break;
-		}		
-		SetCapture(hWnd);
-		//isPainting = true;
-		b = true;
+			}
+		}//else end
+			SetCapture(hWnd);
+			//isPainting = true;
+			b = true;
+		
 		break;
 
 	case WM_MOUSEMOVE:
-		GetClientRect(hWnd, &rect);		
-		if (b && (bPoly == false) && bText == false)
-		{
-			hCompatibleBitmap = CreateCompatibleBitmap(hdc, rect.right, rect.bottom);//bitmap created
-			DeleteObject(SelectObject(hCompatibleDC, hCompatibleBitmap));//created when created
+		if (isPrint && mouseDown){
+
+			GetClientRect(hWnd, &rect);
 			BitBlt(hCompatibleDC, 0, 0, rect.right, rect.bottom, hBitmapDC, 0, 0, SRCCOPY);
-			switch (id)
+			x2 = (short)LOWORD(lParam);
+			y2 = (short)HIWORD(lParam);
+			MoveToEx(hCompatibleDC, x1, y1, NULL);
+			LineTo(hCompatibleDC, x2, y1);
+			MoveToEx(hCompatibleDC, x2, y1, NULL);
+			LineTo(hCompatibleDC, x2, y2);
+			MoveToEx(hCompatibleDC, x2, y2, NULL);
+			LineTo(hCompatibleDC, x2, y1);
+			MoveToEx(hCompatibleDC, x2, y1, NULL);
+			LineTo(hCompatibleDC, x1, y1);
+			MoveToEx(hCompatibleDC, x1, y1, NULL);
+			LineTo(hCompatibleDC, x1, y2);
+			MoveToEx(hCompatibleDC, x1, y2, NULL);
+			LineTo(hCompatibleDC, x2, y2);
+			
+			f = 2;
+			InvalidateRect(hWnd, NULL, FALSE);
+			UpdateWindow(hWnd);
+			break;
+		}
+		else{
+
+			GetClientRect(hWnd, &rect);
+			if (b && (bPoly == false) && bText == false)
 			{
+				hCompatibleBitmap = CreateCompatibleBitmap(hdc, rect.right, rect.bottom);//bitmap created
+				DeleteObject(SelectObject(hCompatibleDC, hCompatibleBitmap));//created when created
+				BitBlt(hCompatibleDC, 0, 0, rect.right, rect.bottom, hBitmapDC, 0, 0, SRCCOPY);
+				switch (id)
+				{
 				case IDM_PEN:
 					x2 = LOWORD(lParam);
 					y2 = HIWORD(lParam);
 					MoveToEx(hBitmapDC, x1, y1, NULL);
 					LineTo(hBitmapDC, x2, y2);
-					
+
 					MoveToEx(hdc1, x1, y1, NULL);
 					LineTo(hdc1, x2, y2);
 
 					MoveToEx(hCompatibleDC, x1, y1, NULL);
 					LineTo(hCompatibleDC, x2, y2);
 
-					
-					
+
+
 					x1 = x2;
 					y1 = y2;
 					break;
@@ -480,92 +516,105 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 					x2 = x1;
 					y2 = y1;
 					break;
-				
-				
-				
-			}
-			f = 2;
-			InvalidateRect(hWnd, NULL, FALSE);
-			UpdateWindow(hWnd);
 
+
+
+				}
+				f = 2;
+				InvalidateRect(hWnd, NULL, FALSE);
+				UpdateWindow(hWnd);
+
+
+			}
+			if (b&&bPoly&&bText == false)
+			{
+				hCompatibleBitmap = CreateCompatibleBitmap(hdc, rect.right, rect.bottom);
+				DeleteObject(SelectObject(hCompatibleDC, hCompatibleBitmap));
+				BitBlt(hCompatibleDC, 0, 0, rect.right, rect.bottom, hBitmapDC, 0, 0, SRCCOPY);
+				x2 = (short)LOWORD(lParam);
+				y2 = (short)HIWORD(lParam);
+				MoveToEx(hCompatibleDC, x1, y1, NULL);
+				LineTo(hCompatibleDC, x2, y2);
+				f = 2;
+				InvalidateRect(hWnd, NULL, FALSE);
+				UpdateWindow(hWnd);
+			}
+			break;
 
 		}
-		if (b&&bPoly&&bText == false)
-		{
+		
+
+	case WM_LBUTTONUP:
+		mouseDown = false;
+		if (isPrint){
+			isPrint = false;
+			f = 1;
+			InvalidateRect(hWnd, NULL, FALSE);
+			UpdateWindow(hWnd);
+			b = false;
+			
+			Print(hWnd,x1,x2,y1,y2);
+			break;
+		} 
+		else{
+			ReleaseCapture();
+			if (bText)
+			{
+				xT = (short)LOWORD(lParam);
+				yT = (short)HIWORD(lParam);
+				text.clear();
+				b = false;
+				break;
+			}
+			GetClientRect(hWnd, &rect);
 			hCompatibleBitmap = CreateCompatibleBitmap(hdc, rect.right, rect.bottom);
 			DeleteObject(SelectObject(hCompatibleDC, hCompatibleBitmap));
 			BitBlt(hCompatibleDC, 0, 0, rect.right, rect.bottom, hBitmapDC, 0, 0, SRCCOPY);
-			x2 = (short)LOWORD(lParam);
-			y2 = (short)HIWORD(lParam);
-			MoveToEx(hCompatibleDC, x1, y1, NULL);
-			LineTo(hCompatibleDC, x2, y2);
-			f = 2;
-			InvalidateRect(hWnd, NULL, FALSE);
-			UpdateWindow(hWnd);
-		}
-		break;
+			if (b && (bPoly == false))
+			{
+				x2 = (short)LOWORD(lParam);
+				y2 = (short)HIWORD(lParam);
+				switch (id)
+				{
+				case IDM_PEN:
 
-
-		break;
-
-	case WM_LBUTTONUP:
-		ReleaseCapture();
-		if (bText)
-		{
-			xT = (short)LOWORD(lParam);
-			yT = (short)HIWORD(lParam);
-			text.clear();
-			b = false;
+				case IDM_LINE:
+					MoveToEx(hdc1, x1, y1, NULL);
+					LineTo(hdc1, x2, y2);
+					MoveToEx(hBitmapDC, x1, y1, NULL);
+					LineTo(hBitmapDC, x2, y2);
+					break;
+				case IDM_ELLIPSE:
+					Ellipse(hdc1, x1, y1, x2, y2);
+					Ellipse(hBitmapDC, x1, y1, x2, y2);
+					break;
+				case IDM_RECTANGLE:
+					Rectangle(hdc1, x1, y1, x2, y2);
+					Rectangle(hBitmapDC, x1, y1, x2, y2);
+					break;
+				}
+				f = 1;
+				InvalidateRect(hWnd, NULL, FALSE);
+				UpdateWindow(hWnd);
+				b = false;
+			}
+			if (b&&bPoly)
+			{
+				MoveToEx(hdc1, x1, y1, NULL);
+				MoveToEx(hBitmapDC, x1, y1, NULL);
+				x2 = (short)LOWORD(lParam);
+				y2 = (short)HIWORD(lParam);
+				LineTo(hdc1, x2, y2);
+				LineTo(hBitmapDC, x2, y2);
+				x1 = x2;
+				y1 = y2;
+				b = false;
+				f = 1;
+				InvalidateRect(hWnd, NULL, FALSE);
+				UpdateWindow(hWnd);
+			}
 			break;
 		}
-		GetClientRect(hWnd, &rect);
-		hCompatibleBitmap = CreateCompatibleBitmap(hdc, rect.right, rect.bottom);
-		DeleteObject(SelectObject(hCompatibleDC, hCompatibleBitmap));
-		BitBlt(hCompatibleDC, 0, 0, rect.right, rect.bottom, hBitmapDC, 0, 0, SRCCOPY);
-		if (b && (bPoly == false))
-		{
-			x2 = (short)LOWORD(lParam);
-			y2 = (short)HIWORD(lParam);
-			switch (id)
-			{
-			case IDM_PEN:
-				
-			case IDM_LINE:
-				MoveToEx(hdc1, x1, y1, NULL);
-				LineTo(hdc1, x2, y2);
-				MoveToEx(hBitmapDC, x1, y1, NULL);
-				LineTo(hBitmapDC, x2, y2);
-				break;
-			case IDM_ELLIPSE:
-				Ellipse(hdc1, x1, y1, x2, y2);
-				Ellipse(hBitmapDC, x1, y1, x2, y2);
-				break;
-			case IDM_RECTANGLE:
-				Rectangle(hdc1, x1, y1, x2, y2);
-				Rectangle(hBitmapDC, x1, y1, x2, y2);
-				break;
-			}
-			f = 1;
-			InvalidateRect(hWnd, NULL, FALSE);
-			UpdateWindow(hWnd);
-			b = false;
-		}
-		if (b&&bPoly)
-		{
-			MoveToEx(hdc1, x1, y1, NULL);
-			MoveToEx(hBitmapDC, x1, y1, NULL);
-			x2 = (short)LOWORD(lParam);
-			y2 = (short)HIWORD(lParam);
-			LineTo(hdc1, x2, y2);
-			LineTo(hBitmapDC, x2, y2);
-			x1 = x2;
-			y1 = y2;
-			b = false;
-			f = 1;
-			InvalidateRect(hWnd, NULL, FALSE);
-			UpdateWindow(hWnd);
-		}
-		break;
 
 	case WM_RBUTTONUP:
 		if (bPoly)
@@ -675,6 +724,7 @@ void assignId(int identifier)
 
 void create(HWND h)
 {
+	ShowWindow(h, SW_MAXIMIZE);
 	hdc = GetDC(h);
 
 	GetClientRect(h, &rect);
@@ -882,7 +932,7 @@ void Id(HWND h, int i, int s, int x, int y, bool pol, bool line)
 	InvalidateRect(h, NULL, FALSE);
 }
 
-void Print(HWND h)
+void Print(HWND h,int x1,int x2,int y1,int y2 )
 {
 	double coef = 0.5;
 	ZeroMemory(&pd, sizeof(pd));
@@ -908,19 +958,23 @@ void Print(HWND h)
 		StartDoc(pd.hDC, &di);
 		StartPage(pd.hDC);
 		GetClientRect(h, &rect);
+		rect.left = x1;
+		rect.right = x2;
+		rect.top = y1;
+		rect.bottom = y2;
 		hdcMem = CreateCompatibleDC(hdc);
-		hbmMem = CreateCompatibleBitmap(hdc, rect.right, rect.bottom);
+		hbmMem = CreateCompatibleBitmap(hdc, rect.right - rect.left, rect.bottom - rect.top);
 		int Rx1 = GetDeviceCaps(hdcMem, LOGPIXELSX);
 		int Ry1 = GetDeviceCaps(hdcMem, LOGPIXELSY);
 		hOld = SelectObject(hdcMem, hbmMem);
 		FillRect(hdcMem, &rect, WHITE_BRUSH);
-		StretchBlt(hdcMem, 0, 0, (int)(rect.right*scale), (int)(rect.bottom*scale),
-			hBitmapDC, xBegin, yBegin, rect.right, rect.bottom, SRCCOPY);
+		StretchBlt(hdcMem, 0, 0, (int)((rect.right - rect.left)*scale), (int)((rect.bottom - rect.top)*scale),
+			hBitmapDC, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SRCCOPY);
 		SelectObject(hdcMem, (HBRUSH)GetStockObject(NULL_BRUSH));
 		SelectObject(hdcMem, (HPEN)GetStockObject(BLACK_PEN));
 		Rectangle(hdcMem, 0, 0, (int)(rect.right*scale), (int)(rect.bottom*scale));
-		StretchBlt(pd.hDC, 0, 0, (int)((float)(coef*rect.right*((float)(Rx / Rx1)))), (int)((float)(coef*rect.bottom*((float)(Ry / Ry1)))),
-			hdcMem, 0, 0, rect.right, rect.bottom, SRCCOPY);
+		StretchBlt(pd.hDC, 0, 0, (int)((float)(coef*(rect.right - rect.left)*((float)(Rx / Rx1)))), (int)((float)(coef*(rect.bottom - rect.top)*((float)(Ry / Ry1)))),
+			hdcMem, 0, 0, (rect.right - rect.left), (rect.bottom - rect.top), SRCCOPY);
 		SelectObject(hdcMem, hOld);
 		DeleteObject(hbmMem);
 		DeleteDC(hdcMem);
